@@ -1,19 +1,23 @@
 // components/chat/ChatInput.tsx
 'use client';
-
+import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
 import { SendIcon, SmileIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPicker } from './EmojiPicker';
 import { useUser } from '@clerk/nextjs';
+import {toast} from 'sonner'
 
 export function ChatInput() {
+  const router = useRouter(); 
+
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { isSignedIn } = useUser();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,19 +27,26 @@ export function ChatInput() {
     try {
       setIsSubmitting(true);
       
+      // Optimistically clear the input
+      const messageContent = message.trim();
+      setMessage('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message.trim() }),
+        body: JSON.stringify({ content: messageContent }),
       });
       
-      if (!response.ok) throw new Error('Failed to send message');
-      
-      setMessage('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      router.refresh();
+      // No need to manually update UI here - the SSE will handle it
     } catch (error) {
       console.error('Error sending message:', error);
-    } finally {
+      toast( "Failed to send message. Please try again.",);
+} finally {
       setIsSubmitting(false);
     }
   };
